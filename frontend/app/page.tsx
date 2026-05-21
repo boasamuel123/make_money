@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
+type Plan = "free" | "pro";
+
 type ActionItem = string | { task?: string; owner?: string };
 
 type Result = {
@@ -30,7 +32,9 @@ type Meeting = {
 
 export default function Home() {
     const [user, setUser] = useState<User | null>(null);
-    const [plan, setPlan] = useState("free");
+    const [plan, setPlan] = useState<Plan>("free");
+    const [profileLoading, setProfileLoading] = useState(true);
+
     const [clientName, setClientName] = useState("");
     const [meetingType, setMeetingType] = useState("");
     const [outputStyle, setOutputStyle] = useState("client-friendly");
@@ -39,7 +43,31 @@ export default function Home() {
     const [result, setResult] = useState<Result | null>(null);
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [freeUses, setFreeUses] = useState(0);
+
+    async function loadProfile(userId: string) {
+        setProfileLoading(true);
+
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("id", userId)
+            .maybeSingle();
+
+        console.log("USER ID:", userId);
+        console.log("PROFILE DATA:", data);
+        console.log("PROFILE ERROR:", error);
+
+        if (error) {
+            setPlan("free");
+            setProfileLoading(false);
+            return;
+        }
+
+        const profilePlan = String(data?.plan || "free").toLowerCase().trim();
+
+        setPlan(profilePlan === "pro" ? "pro" : "free");
+        setProfileLoading(false);
+    }
 
     async function loadMeetings(userId: string) {
         const { data, error } = await supabase
@@ -67,32 +95,6 @@ export default function Home() {
         );
     }
 
-    async function loadProfile(userId: string) {
-        const { data, error } = await supabase
-            .from("profiles")
-            .select("plan")
-            .eq("id", userId)
-            .maybeSingle();
-
-        if (error) {
-            console.error("Profile load error:", error);
-            setPlan("free");
-            return;
-        }
-
-        setPlan(data?.plan ?? "free");
-    }
-
-    useEffect(() => {
-        const savedUses = localStorage.getItem("freeUses");
-
-        if (savedUses) {
-            setTimeout(() => {
-                setFreeUses(Number(savedUses));
-            }, 0);
-        }
-    }, []);
-
     useEffect(() => {
         async function getUser() {
             const {
@@ -103,6 +105,8 @@ export default function Home() {
 
             if (user) {
                 await Promise.all([loadMeetings(user.id), loadProfile(user.id)]);
+            } else {
+                setProfileLoading(false);
             }
         }
 
@@ -111,21 +115,71 @@ export default function Home() {
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
+            const currentUser = session?.user ?? null;
 
-            if (session?.user) {
+            setUser(currentUser);
+
+            if (currentUser) {
                 void Promise.all([
-                    loadMeetings(session.user.id),
-                    loadProfile(session.user.id),
+                    loadMeetings(currentUser.id),
+                    loadProfile(currentUser.id),
                 ]);
             } else {
                 setMeetings([]);
                 setPlan("free");
+                setProfileLoading(false);
             }
         });
 
         return () => subscription.unsubscribe();
     }, []);
+
+    function getWeekStart() {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(now.setDate(diff));
+
+        monday.setHours(0, 0, 0, 0);
+
+        return monday.toISOString().split("T")[0];
+    }
+
+    async function checkAndIncrementUsage(userId: string) {
+        const weekStart = getWeekStart();
+
+        const { data } = await supabase
+            .from("usage_limits")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("week_start", weekStart)
+            .maybeSingle();
+
+        if (!data) {
+            const { error } = await supabase.from("usage_limits").insert({
+                user_id: userId,
+                week_start: weekStart,
+                generations: 1,
+            });
+
+            if (error) throw error;
+
+            return { allowed: true, used: 1 };
+        }
+
+        if (data.generations >= 15) {
+            return { allowed: false, used: data.generations };
+        }
+
+        const { error } = await supabase
+            .from("usage_limits")
+            .update({ generations: data.generations + 1 })
+            .eq("id", data.id);
+
+        if (error) throw error;
+
+        return { allowed: true, used: data.generations + 1 };
+    }
 
     async function saveMeetingToSupabase(
         meeting: Omit<Meeting, "id" | "createdAt">
@@ -150,75 +204,19 @@ export default function Home() {
             return;
         }
 
-        const formatted: Meeting = {
-            id: data.id,
-            createdAt: data.created_at,
-            userId: data.user_id,
-            clientName: data.client_name || "",
-            meetingType: data.meeting_type || "",
-            outputStyle: data.output_style || "client-friendly",
-            transcript: data.transcript,
-            result: data.result,
-        };
-
-        setMeetings((current) => [formatted, ...current]);
-    }
-    function getWeekStart() {
-        const now = new Date();
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-
-        const monday = new Date(now.setDate(diff));
-        monday.setHours(0, 0, 0, 0);
-
-        return monday.toISOString().split("T")[0];
-    }
-
-    async function checkAndIncrementUsage(userId: string) {
-        const weekStart = getWeekStart();
-
-        const { data } = await supabase
-            .from("usage_limits")
-            .select("*")
-            .eq("user_id", userId)
-            .eq("week_start", weekStart)
-            .single();
-
-        if (!data) {
-            const { error } = await supabase.from("usage_limits").insert({
-                user_id: userId,
-                week_start: weekStart,
-                generations: 1,
-            });
-
-            if (error) throw error;
-
-            return {
-                allowed: true,
-                used: 1,
-            };
-        }
-
-        if (data.generations >= 15) {
-            return {
-                allowed: false,
-                used: data.generations,
-            };
-        }
-
-        const { error } = await supabase
-            .from("usage_limits")
-            .update({
-                generations: data.generations + 1,
-            })
-            .eq("id", data.id);
-
-        if (error) throw error;
-
-        return {
-            allowed: true,
-            used: data.generations + 1,
-        };
+        setMeetings((current) => [
+            {
+                id: data.id,
+                createdAt: data.created_at,
+                userId: data.user_id,
+                clientName: data.client_name || "",
+                meetingType: data.meeting_type || "",
+                outputStyle: data.output_style || "client-friendly",
+                transcript: data.transcript,
+                result: data.result,
+            },
+            ...current,
+        ]);
     }
 
     async function handleGenerate() {
@@ -226,6 +224,8 @@ export default function Home() {
             window.location.href = "/login";
             return;
         }
+
+        if (profileLoading) return;
 
         if (plan === "free") {
             const usage = await checkAndIncrementUsage(user.id);
@@ -262,17 +262,14 @@ export default function Home() {
             setResult(data);
 
             if (!data.error) {
-
-                if (user) {
-                    await saveMeetingToSupabase({
-                        userId: user.id,
-                        clientName,
-                        meetingType,
-                        outputStyle,
-                        transcript,
-                        result: data,
-                    });
-                }
+                await saveMeetingToSupabase({
+                    userId: user.id,
+                    clientName,
+                    meetingType,
+                    outputStyle,
+                    transcript,
+                    result: data,
+                });
             }
         } catch (error) {
             console.error(error);
@@ -323,6 +320,7 @@ export default function Home() {
     const thisWeekMeetings = meetings.filter((meeting) => {
         const meetingDate = new Date(meeting.createdAt);
         const sevenDaysAgo = new Date();
+
         sevenDaysAgo.setDate(new Date().getDate() - 7);
 
         return meetingDate >= sevenDaysAgo;
@@ -367,7 +365,11 @@ export default function Home() {
 
                                     <div className="mt-1 flex items-center gap-2">
                     <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-400">
-                      {plan === "pro" ? "Pro plan" : "Free plan"}
+                      {profileLoading
+                          ? "Loading plan..."
+                          : plan === "pro"
+                              ? "Pro plan"
+                              : "Free plan"}
                     </span>
 
                                         <span className="text-xs text-zinc-500">
@@ -393,6 +395,18 @@ export default function Home() {
                         )}
                     </div>
                 </header>
+
+                {user && plan === "pro" && (
+                    <div className="mb-6 rounded-2xl border border-emerald-800 bg-emerald-950/40 p-4 text-sm text-emerald-200">
+                        You are on Pro. Unlimited generations are enabled.
+                    </div>
+                )}
+
+                {user && plan === "free" && !profileLoading && (
+                    <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
+                        Free plan includes 15 generations per week. Upgrade for unlimited.
+                    </div>
+                )}
 
                 {!user && (
                     <p className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
@@ -462,10 +476,14 @@ export default function Home() {
                         <div className="mt-4 flex gap-3">
                             <button
                                 onClick={handleGenerate}
-                                disabled={loading || !transcript.trim()}
+                                disabled={loading || profileLoading || !transcript.trim()}
                                 className="button-primary flex-1 rounded-2xl py-4 font-semibold disabled:opacity-50"
                             >
-                                {loading ? "Generating..." : "Generate action plan"}
+                                {loading
+                                    ? "Generating..."
+                                    : profileLoading
+                                        ? "Loading plan..."
+                                        : "Generate action plan"}
                             </button>
 
                             <button
