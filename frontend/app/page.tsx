@@ -161,18 +161,23 @@ export default function Home() {
         setResult(null);
 
         try {
-            const res = await fetch("https://make-money1-1b3m.onrender.com/generate",  {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    transcript,
-                    clientName,
-                    meetingType,
-                    outputStyle,
-                }),
-            });
+            const response = await fetch(
+                "https://make-money1-lb3m.onrender.com/generate",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        transcript,
+                        clientName,
+                        meetingType,
+                        outputStyle,
+                    }),
+                }
+            );
 
-            const data = await res.json();
+            const data = await response.json();
             setResult(data);
 
             if (!data.error) {
