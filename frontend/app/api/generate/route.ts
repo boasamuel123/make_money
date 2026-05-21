@@ -24,7 +24,12 @@ export async function POST(req: Request) {
                 {
                     role: "system",
                     content: `
-Return ONLY valid JSON.
+Return ONLY raw valid JSON.
+
+Do NOT wrap in markdown.
+Do NOT use triple backticks.
+Do NOT explain anything.
+Output must be valid parseable JSON.
 
 Format:
 {
@@ -53,18 +58,40 @@ ${transcript}
 
         const raw = response.choices[0]?.message?.content || "{}";
 
+// clean markdown fences if model returns ```json
+        const cleaned = raw
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
         try {
-            return NextResponse.json(JSON.parse(raw));
+            const parsed = JSON.parse(cleaned);
+
+            return NextResponse.json({
+                title: parsed.title || "Untitled Meeting",
+                summary: parsed.summary || "",
+                decisions: Array.isArray(parsed.decisions)
+                    ? parsed.decisions
+                    : [],
+                actions: Array.isArray(parsed.actions)
+                    ? parsed.actions
+                    : [],
+                risks: Array.isArray(parsed.risks)
+                    ? parsed.risks
+                    : [],
+                followupEmail: parsed.followupEmail || "",
+            });
         } catch {
             return NextResponse.json({
                 title: "Untitled Meeting",
-                summary: raw,
+                summary: cleaned,
                 decisions: [],
                 actions: [],
                 risks: [],
                 followupEmail: "",
             });
         }
+
     } catch (error: unknown) {
         console.error(error);
 
