@@ -9,15 +9,11 @@ const app = express();
 
 app.use(
     cors({
-        origin: [
-            "http://localhost:3000",
-            "https://make-money-eta.vercel.app",
-        ],
-        methods: ["GET", "POST"],
+        origin: "*",
+        methods: ["GET", "POST", "OPTIONS"],
         allowedHeaders: ["Content-Type"],
     })
 );
-
 app.use(express.json());
 
 const openai = new OpenAI({
