@@ -52,18 +52,18 @@ export default function Home() {
             return;
         }
 
-        const formatted = data.map((meeting) => ({
-            id: meeting.id,
-            createdAt: meeting.created_at,
-            userId: meeting.user_id,
-            clientName: meeting.client_name || "",
-            meetingType: meeting.meeting_type || "",
-            outputStyle: meeting.output_style || "client-friendly",
-            transcript: meeting.transcript,
-            result: meeting.result,
-        }));
-
-        setMeetings(formatted);
+        setMeetings(
+            data.map((meeting) => ({
+                id: meeting.id,
+                createdAt: meeting.created_at,
+                userId: meeting.user_id,
+                clientName: meeting.client_name || "",
+                meetingType: meeting.meeting_type || "",
+                outputStyle: meeting.output_style || "client-friendly",
+                transcript: meeting.transcript,
+                result: meeting.result,
+            }))
+        );
     }
 
     useEffect(() => {
@@ -103,9 +103,7 @@ export default function Home() {
             }
         });
 
-        return () => {
-            subscription.unsubscribe();
-        };
+        return () => subscription.unsubscribe();
     }, []);
 
     async function saveMeetingToSupabase(
@@ -204,7 +202,7 @@ export default function Home() {
                 actions: [],
                 risks: [],
                 followupEmail: "",
-                error: "Could not connect to backend.",
+                error: "Could not generate. Please try again.",
             });
         }
 
@@ -255,12 +253,18 @@ export default function Home() {
     return (
         <main className="min-h-screen bg-black p-8 text-white">
             <div className="mx-auto max-w-7xl animate-fade">
-                <div className="mb-6 flex items-center justify-between">
-                    <p className="text-sm text-zinc-500">
-                        {user ? `Logged in as ${user.email}` : "Not logged in"}
-                    </p>
+                <header className="glass-header mb-8 flex items-center justify-between rounded-3xl px-5 py-4">
+                    <div>
+                        <p className="text-xs uppercase tracking-wide text-zinc-500">
+                            Agency AI OS
+                        </p>
 
-                    <div className="flex gap-3">
+                        <h1 className="text-lg font-semibold text-white">
+                            Meeting Intelligence Dashboard
+                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-3">
                         <Link
                             href="/pricing"
                             className="button-secondary rounded-xl px-4 py-2 text-sm"
@@ -269,22 +273,44 @@ export default function Home() {
                         </Link>
 
                         {user ? (
-                            <button
-                                onClick={() => supabase.auth.signOut()}
-                                className="button-secondary rounded-xl px-4 py-2 text-sm"
-                            >
-                                Logout
-                            </button>
+                            <div className="card-premium flex items-center gap-4 rounded-2xl px-4 py-2">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold">
+                                    {user.email?.charAt(0).toUpperCase()}
+                                </div>
+
+                                <div className="min-w-[180px]">
+                                    <p className="truncate text-sm font-medium text-white">
+                                        {user.email}
+                                    </p>
+
+                                    <div className="mt-1 flex items-center gap-2">
+                    <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-400">
+                      Free plan
+                    </span>
+
+                                        <span className="text-xs text-zinc-500">
+                      {meetings.length} saved
+                    </span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => supabase.auth.signOut()}
+                                    className="button-secondary rounded-xl px-3 py-2 text-sm"
+                                >
+                                    Logout
+                                </button>
+                            </div>
                         ) : (
                             <Link
                                 href="/login"
-                                className="button-primary rounded-xl px-4 py-2 text-sm font-semibold"
+                                className="button-primary rounded-xl px-5 py-2 text-sm font-semibold"
                             >
                                 Login
                             </Link>
                         )}
                     </div>
-                </div>
+                </header>
 
                 {!user && (
                     <p className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
@@ -296,9 +322,9 @@ export default function Home() {
                     Agency AI Operating System
                 </p>
 
-                <h1 className="mb-4 text-5xl font-bold">
+                <h2 className="mb-4 text-5xl font-bold">
                     Turn client meetings into action plans.
-                </h1>
+                </h2>
 
                 <p className="mb-10 max-w-2xl text-zinc-400">
                     Paste meeting notes or a transcript. Generate summaries, actions,
@@ -313,7 +339,7 @@ export default function Home() {
 
                 <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr_320px]">
                     <section className="card-premium rounded-3xl p-6">
-                        <h2 className="mb-4 font-semibold">Meeting details</h2>
+                        <h3 className="mb-4 font-semibold">Meeting details</h3>
 
                         <div className="mb-4 grid gap-3 md:grid-cols-3">
                             <input
@@ -342,7 +368,7 @@ export default function Home() {
                             </select>
                         </div>
 
-                        <h2 className="mb-4 font-semibold">Meeting transcript</h2>
+                        <h3 className="mb-4 font-semibold">Meeting transcript</h3>
 
                         <textarea
                             value={transcript}
@@ -420,7 +446,7 @@ export default function Home() {
                     </section>
 
                     <aside className="card-premium rounded-3xl p-5">
-                        <h2 className="mb-4 font-semibold">Recent meetings</h2>
+                        <h3 className="mb-4 font-semibold">Recent meetings</h3>
 
                         <input
                             value={searchTerm}
