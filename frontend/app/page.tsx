@@ -162,7 +162,7 @@ export default function Home() {
 
         try {
             const response = await fetch(
-                "https://make-money1-lb3m.onrender.com/generate",
+                "/api/generate",
                 {
                     method: "POST",
                     headers: {
