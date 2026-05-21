@@ -108,6 +108,14 @@ export default function LoginPage() {
                             ? "Need an account? Sign up"
                             : "Already have an account? Login"}
                     </button>
+                    {mode === "login" && (
+                        <Link
+                            href="/forgot-password"
+                            className="mt-4 block text-sm text-zinc-400 hover:text-white"
+                        >
+                            Forgot password?
+                        </Link>
+                    )}
                 </div>
             </div>
         </main>
