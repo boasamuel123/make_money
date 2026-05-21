@@ -1,5 +1,7 @@
 "use client";
 
+
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -159,7 +161,7 @@ export default function Home() {
         setResult(null);
 
         try {
-            const res = await fetch("http://localhost:5001/generate", {
+            const res = await fetch("https://make-money1-lb3m.onrender.com/generate",  {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
