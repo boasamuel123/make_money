@@ -27,6 +27,11 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
     res.json({ ok: true });
 });
+app.get("/cors-test", (_req, res) => {
+    res.json({
+        message: "cors works",
+    });
+});
 
 app.post("/generate", async (req, res) => {
     try {
