@@ -9,11 +9,14 @@ const app = express();
 
 app.use(
     cors({
-        origin: "*",
+        origin: true,
+        credentials: true,
         methods: ["GET", "POST", "OPTIONS"],
-        allowedHeaders: ["Content-Type"],
+        allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
+app.options("*", cors());
+
 app.use(express.json());
 
 const openai = new OpenAI({
