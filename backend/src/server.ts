@@ -14,6 +14,13 @@ const openai = new OpenAI({
     apiKey: process.env.GROQ_API_KEY,
     baseURL: "https://api.groq.com/openai/v1",
 });
+app.get("/", (_req, res) => {
+    res.send("Backend is running");
+});
+
+app.get("/health", (_req, res) => {
+    res.json({ ok: true });
+});
 
 app.post("/generate", async (req, res) => {
     try {
