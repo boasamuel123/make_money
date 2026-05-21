@@ -161,7 +161,7 @@ export default function Home() {
         setResult(null);
 
         try {
-            const res = await fetch("https://make-money1-1b3m.onrender.com//generate",  {
+            const res = await fetch("https://make-money1-1b3m.onrender.com/generate",  {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
