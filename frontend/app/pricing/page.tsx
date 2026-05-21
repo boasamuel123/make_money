@@ -6,7 +6,7 @@ const plans = [
         price: "£0",
         description: "For testing the product and occasional meeting notes.",
         features: [
-            "3 free generations",
+            "15 free generations per week",
             "Meeting summaries",
             "Action items",
             "Follow-up emails",

@@ -30,6 +30,7 @@ type Meeting = {
 
 export default function Home() {
     const [user, setUser] = useState<User | null>(null);
+    const [plan, setPlan] = useState("free");
     const [clientName, setClientName] = useState("");
     const [meetingType, setMeetingType] = useState("");
     const [outputStyle, setOutputStyle] = useState("client-friendly");
@@ -66,6 +67,22 @@ export default function Home() {
         );
     }
 
+    async function loadProfile(userId: string) {
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("id", userId)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Profile load error:", error);
+            setPlan("free");
+            return;
+        }
+
+        setPlan(data?.plan ?? "free");
+    }
+
     useEffect(() => {
         const savedUses = localStorage.getItem("freeUses");
 
@@ -85,7 +102,7 @@ export default function Home() {
             setUser(user);
 
             if (user) {
-                await loadMeetings(user.id);
+                await Promise.all([loadMeetings(user.id), loadProfile(user.id)]);
             }
         }
 
@@ -97,9 +114,13 @@ export default function Home() {
             setUser(session?.user ?? null);
 
             if (session?.user) {
-                void loadMeetings(session.user.id);
+                void Promise.all([
+                    loadMeetings(session.user.id),
+                    loadProfile(session.user.id),
+                ]);
             } else {
                 setMeetings([]);
+                setPlan("free");
             }
         });
 
@@ -142,11 +163,77 @@ export default function Home() {
 
         setMeetings((current) => [formatted, ...current]);
     }
+    function getWeekStart() {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+
+        const monday = new Date(now.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+
+        return monday.toISOString().split("T")[0];
+    }
+
+    async function checkAndIncrementUsage(userId: string) {
+        const weekStart = getWeekStart();
+
+        const { data } = await supabase
+            .from("usage_limits")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("week_start", weekStart)
+            .single();
+
+        if (!data) {
+            const { error } = await supabase.from("usage_limits").insert({
+                user_id: userId,
+                week_start: weekStart,
+                generations: 1,
+            });
+
+            if (error) throw error;
+
+            return {
+                allowed: true,
+                used: 1,
+            };
+        }
+
+        if (data.generations >= 15) {
+            return {
+                allowed: false,
+                used: data.generations,
+            };
+        }
+
+        const { error } = await supabase
+            .from("usage_limits")
+            .update({
+                generations: data.generations + 1,
+            })
+            .eq("id", data.id);
+
+        if (error) throw error;
+
+        return {
+            allowed: true,
+            used: data.generations + 1,
+        };
+    }
 
     async function handleGenerate() {
-        if (!user && freeUses >= 3) {
-            window.location.href = "/pricing";
+        if (!user) {
+            window.location.href = "/login";
             return;
+        }
+
+        if (plan === "free") {
+            const usage = await checkAndIncrementUsage(user.id);
+
+            if (!usage.allowed) {
+                window.location.href = "/pricing";
+                return;
+            }
         }
 
         setLoading(true);
@@ -175,11 +262,6 @@ export default function Home() {
             setResult(data);
 
             if (!data.error) {
-                if (!user) {
-                    const nextUses = freeUses + 1;
-                    setFreeUses(nextUses);
-                    localStorage.setItem("freeUses", String(nextUses));
-                }
 
                 if (user) {
                     await saveMeetingToSupabase({
@@ -285,7 +367,7 @@ export default function Home() {
 
                                     <div className="mt-1 flex items-center gap-2">
                     <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-400">
-                      Free plan
+                      {plan === "pro" ? "Pro plan" : "Free plan"}
                     </span>
 
                                         <span className="text-xs text-zinc-500">
@@ -314,7 +396,7 @@ export default function Home() {
 
                 {!user && (
                     <p className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
-                        Free generations used: {freeUses}/3. Login to save meetings.
+                        Free plan includes 15 generations per week. Upgrade for unlimited.
                     </p>
                 )}
 

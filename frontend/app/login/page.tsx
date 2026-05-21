@@ -40,6 +40,12 @@ export default function LoginPage() {
         }
 
         setLoading(false);
+
+        await supabase.from("profiles").upsert({
+            id: result.data.user?.id,
+            email,
+            plan: "free",
+        });
     }
 
     return (
@@ -116,6 +122,7 @@ export default function LoginPage() {
                             Forgot password?
                         </Link>
                     )}
+
                 </div>
             </div>
         </main>
