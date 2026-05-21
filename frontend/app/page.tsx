@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -42,7 +40,6 @@ export default function Home() {
     const [searchTerm, setSearchTerm] = useState("");
     const [freeUses, setFreeUses] = useState(0);
 
-
     async function loadMeetings(userId: string) {
         const { data, error } = await supabase
             .from("meetings")
@@ -73,10 +70,8 @@ export default function Home() {
         const savedUses = localStorage.getItem("freeUses");
 
         if (savedUses) {
-            const parsed = Number(savedUses);
-
             setTimeout(() => {
-                setFreeUses(parsed);
+                setFreeUses(Number(savedUses));
             }, 0);
         }
     }, []);
@@ -156,26 +151,29 @@ export default function Home() {
             return;
         }
 
-
         setLoading(true);
         setResult(null);
 
         try {
             const response = await fetch("/api/generate", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        transcript,
-                        clientName,
-                        meetingType,
-                        outputStyle,
-                    }),
-                }
-            );
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    transcript,
+                    clientName,
+                    meetingType,
+                    outputStyle,
+                }),
+            });
 
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Something went wrong");
+            }
+
             setResult(data);
 
             if (!data.error) {
@@ -196,7 +194,9 @@ export default function Home() {
                     });
                 }
             }
-        } catch {
+        } catch (error) {
+            console.error(error);
+
             setResult({
                 title: "",
                 summary: "",
@@ -224,7 +224,7 @@ export default function Home() {
             await supabase.from("meetings").delete().eq("id", id);
         }
 
-        setMeetings(meetings.filter((meeting) => meeting.id !== id));
+        setMeetings((current) => current.filter((meeting) => meeting.id !== id));
     }
 
     const filteredMeetings = meetings.filter((meeting) => {
@@ -254,42 +254,41 @@ export default function Home() {
 
     return (
         <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-7xl animate-fade">
                 <div className="mb-6 flex items-center justify-between">
-                    <Link
-                        href="/pricing"
-                        className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-                    >
-                        Pricing
-                    </Link>
                     <p className="text-sm text-zinc-500">
                         {user ? `Logged in as ${user.email}` : "Not logged in"}
                     </p>
 
-
-                    {user ? (
-                        <button
-                            onClick={() => supabase.auth.signOut()}
-                            className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-                        >
-                            Logout
-                        </button>
-                    ) : (
+                    <div className="flex gap-3">
                         <Link
-                            href="/login"
-                            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black"
+                            href="/pricing"
+                            className="button-secondary rounded-xl px-4 py-2 text-sm"
                         >
-                            Login
+                            Pricing
                         </Link>
 
-                    )}
-
+                        {user ? (
+                            <button
+                                onClick={() => supabase.auth.signOut()}
+                                className="button-secondary rounded-xl px-4 py-2 text-sm"
+                            >
+                                Logout
+                            </button>
+                        ) : (
+                            <Link
+                                href="/login"
+                                className="button-primary rounded-xl px-4 py-2 text-sm font-semibold"
+                            >
+                                Login
+                            </Link>
+                        )}
+                    </div>
                 </div>
-
 
                 {!user && (
                     <p className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
-                        Free generations used: {freeUses}/3. Login to keep using the app.
+                        Free generations used: {freeUses}/3. Login to save meetings.
                     </p>
                 )}
 
@@ -313,7 +312,7 @@ export default function Home() {
                 </div>
 
                 <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr_320px]">
-                    <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+                    <section className="card-premium rounded-3xl p-6">
                         <h2 className="mb-4 font-semibold">Meeting details</h2>
 
                         <div className="mb-4 grid gap-3 md:grid-cols-3">
@@ -321,20 +320,20 @@ export default function Home() {
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}
                                 placeholder="Client name"
-                                className="rounded-2xl border border-zinc-700 bg-black p-4 text-white outline-none"
+                                className="input-premium rounded-2xl p-4 text-white outline-none"
                             />
 
                             <input
                                 value={meetingType}
                                 onChange={(e) => setMeetingType(e.target.value)}
                                 placeholder="Meeting type"
-                                className="rounded-2xl border border-zinc-700 bg-black p-4 text-white outline-none"
+                                className="input-premium rounded-2xl p-4 text-white outline-none"
                             />
 
                             <select
                                 value={outputStyle}
                                 onChange={(e) => setOutputStyle(e.target.value)}
-                                className="rounded-2xl border border-zinc-700 bg-black p-4 text-white outline-none"
+                                className="input-premium rounded-2xl p-4 text-white outline-none"
                             >
                                 <option value="concise">Concise</option>
                                 <option value="detailed">Detailed</option>
@@ -349,14 +348,14 @@ export default function Home() {
                             value={transcript}
                             onChange={(e) => setTranscript(e.target.value)}
                             placeholder="Paste your client meeting transcript here..."
-                            className="h-[500px] w-full resize-none rounded-2xl border border-zinc-700 bg-black p-4 text-white outline-none"
+                            className="input-premium h-[500px] w-full resize-none rounded-2xl p-4 text-white outline-none"
                         />
 
                         <div className="mt-4 flex gap-3">
                             <button
                                 onClick={handleGenerate}
                                 disabled={loading || !transcript.trim()}
-                                className="flex-1 rounded-2xl bg-white py-4 font-semibold text-black disabled:opacity-50"
+                                className="button-primary flex-1 rounded-2xl py-4 font-semibold disabled:opacity-50"
                             >
                                 {loading ? "Generating..." : "Generate action plan"}
                             </button>
@@ -369,7 +368,7 @@ export default function Home() {
                                     setTranscript("");
                                     setResult(null);
                                 }}
-                                className="rounded-2xl border border-zinc-700 px-5 font-semibold text-zinc-300 hover:bg-zinc-800"
+                                className="button-secondary rounded-2xl px-5 font-semibold"
                             >
                                 Clear
                             </button>
@@ -396,14 +395,14 @@ export default function Home() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
                                             onClick={() => copyText(buildFullReport(result))}
-                                            className="rounded-2xl bg-white py-3 font-semibold text-black"
+                                            className="button-primary rounded-2xl py-3 font-semibold"
                                         >
                                             Copy full report
                                         </button>
 
                                         <button
                                             onClick={() => downloadReport(result)}
-                                            className="rounded-2xl border border-zinc-700 py-3 font-semibold text-zinc-300 hover:bg-zinc-800"
+                                            className="button-secondary rounded-2xl py-3 font-semibold"
                                         >
                                             Download .txt
                                         </button>
@@ -420,14 +419,14 @@ export default function Home() {
                         )}
                     </section>
 
-                    <aside className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+                    <aside className="card-premium rounded-3xl p-5">
                         <h2 className="mb-4 font-semibold">Recent meetings</h2>
 
                         <input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Search meetings..."
-                            className="mb-4 w-full rounded-2xl border border-zinc-700 bg-black p-3 text-sm text-white outline-none"
+                            className="input-premium mb-4 w-full rounded-2xl p-3 text-sm text-white outline-none"
                         />
 
                         <div className="space-y-3">
@@ -435,7 +434,7 @@ export default function Home() {
                                 filteredMeetings.map((meeting) => (
                                     <div
                                         key={meeting.id}
-                                        className="rounded-2xl border border-zinc-800 bg-black p-4"
+                                        className="history-item rounded-2xl border border-zinc-800 bg-black p-4"
                                     >
                                         <button
                                             onClick={() => openMeeting(meeting)}
@@ -487,7 +486,9 @@ function downloadReport(result: Result | null) {
     if (!result) return;
 
     const report = buildFullReport(result);
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([report], {
+        type: "text/plain;charset=utf-8",
+    });
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -534,13 +535,13 @@ ${result.followupEmail}
 
 function Card({ title, content }: { title: string; content?: string }) {
     return (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="card-premium rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-semibold">{title}</h3>
 
                 <button
                     onClick={() => copyText(content)}
-                    className="rounded-lg bg-zinc-800 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
+                    className="copy-btn rounded-lg bg-zinc-800 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
                 >
                     Copy
                 </button>
@@ -573,13 +574,13 @@ function ListCard({
     const text = normalizedItems.join("\n");
 
     return (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="card-premium rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-semibold">{title}</h3>
 
                 <button
                     onClick={() => copyText(text)}
-                    className="rounded-lg bg-zinc-800 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
+                    className="copy-btn rounded-lg bg-zinc-800 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
                 >
                     Copy
                 </button>
@@ -598,7 +599,7 @@ function ListCard({
 
 function StatCard({ label, value }: { label: string; value: number }) {
     return (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="card-premium rounded-3xl p-5">
             <p className="text-sm text-zinc-500">{label}</p>
             <p className="mt-2 text-3xl font-bold">{value}</p>
         </div>
@@ -607,13 +608,13 @@ function StatCard({ label, value }: { label: string; value: number }) {
 
 function LoadingCard() {
     return (
-        <div className="animate-pulse rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
-            <div className="mb-4 h-5 w-40 rounded bg-zinc-800" />
+        <div className="card-premium animate-pulse rounded-3xl p-5">
+            <div className="mb-4 h-5 w-40 rounded bg-zinc-700/70" />
 
             <div className="space-y-3">
-                <div className="h-4 rounded bg-zinc-800" />
-                <div className="h-4 w-11/12 rounded bg-zinc-800" />
-                <div className="h-4 w-8/12 rounded bg-zinc-800" />
+                <div className="h-4 rounded bg-zinc-700/70" />
+                <div className="h-4 w-11/12 rounded bg-zinc-700/70" />
+                <div className="h-4 w-8/12 rounded bg-zinc-700/70" />
             </div>
         </div>
     );
